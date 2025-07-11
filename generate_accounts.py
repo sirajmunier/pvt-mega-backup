@@ -2,6 +2,7 @@
 # saves credentials to a file called accounts.csv
 
 import requests
+import os
 import subprocess
 import os
 import time
@@ -62,11 +63,25 @@ def get_random_string(length):
 
 
 class MegaAccount:
+    http_proxy = None  # Class variable for HTTP proxy
+
+    @classmethod
+    def set_http_proxy(cls, proxy_url):
+        if proxy_url and proxy_url.startswith('http'):
+            cls.http_proxy = {
+                'http': proxy_url,
+                'https': proxy_url
+            }
+        else:
+            cls.http_proxy = None
     def __init__(self, name, password):
         self.name = name
         self.password = password
 
     def generate_mail(self):
+        # If an HTTP proxy is set, patch requests to use it
+        if self.http_proxy:
+            self._patch_requests()
         """Generate mail.tm account and return account credentials."""
         for i in range(5):
             try:
@@ -91,6 +106,19 @@ class MegaAccount:
         self.email_password = acc.password
 
     def get_mail(self):
+        # If an HTTP proxy is set, patch requests to use it
+        if self.http_proxy:
+            self._patch_requests()
+    def _patch_requests(self):
+        import requests
+        # Patch requests.Session to always use the proxy
+        orig_request = requests.Session.request
+        proxies = self.http_proxy
+        def request_with_proxy(self_, method, url, **kwargs):
+            if 'proxies' not in kwargs:
+                kwargs['proxies'] = proxies
+            return orig_request(self_, method, url, **kwargs)
+        requests.Session.request = request_with_proxy
         """Get the latest email from the mail.tm account"""
         while True:
             try:
@@ -186,6 +214,10 @@ def new_account():
 
 
 if __name__ == "__main__":
+    # Optionally set HTTP proxy from environment variable or config here
+    http_proxy_env = ""
+    if http_proxy_env:
+        MegaAccount.set_http_proxy(http_proxy_env)
     # Check if CSV file exists, and if not create it and add header
     if not os.path.exists("accounts.csv"):
         with open("accounts.csv", "w") as csvfile:
