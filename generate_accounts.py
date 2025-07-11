@@ -79,10 +79,9 @@ class MegaAccount:
         self.password = password
 
     def generate_mail(self):
-        # If an HTTP proxy is set, patch requests to use it
+        """Generate mail.tm account and return account credentials."""
         if self.http_proxy:
             self._patch_requests()
-        """Generate mail.tm account and return account credentials."""
         for i in range(5):
             try:
                 mail = pymailtm.MailTm()
@@ -106,20 +105,9 @@ class MegaAccount:
         self.email_password = acc.password
 
     def get_mail(self):
-        # If an HTTP proxy is set, patch requests to use it
+        """Get the latest email from the mail.tm account"""
         if self.http_proxy:
             self._patch_requests()
-    def _patch_requests(self):
-        import requests
-        # Patch requests.Session to always use the proxy
-        orig_request = requests.Session.request
-        proxies = self.http_proxy
-        def request_with_proxy(self_, method, url, **kwargs):
-            if 'proxies' not in kwargs:
-                kwargs['proxies'] = proxies
-            return orig_request(self_, method, url, **kwargs)
-        requests.Session.request = request_with_proxy
-        """Get the latest email from the mail.tm account"""
         while True:
             try:
                 mail = pymailtm.Account(self.email_id, self.email, self.email_password)
@@ -131,6 +119,17 @@ class MegaAccount:
         if len(messages) == 0:
             return None
         return messages[0]
+
+    def _patch_requests(self):
+        import requests
+        # Patch requests.Session to always use the proxy
+        orig_request = requests.Session.request
+        proxies = self.http_proxy
+        def request_with_proxy(self_, method, url, **kwargs):
+            if 'proxies' not in kwargs:
+                kwargs['proxies'] = proxies
+            return orig_request(self_, method, url, **kwargs)
+        requests.Session.request = request_with_proxy
 
     def register(self):
         # Generate mail.tm account and return account credentials.
@@ -215,7 +214,7 @@ def new_account():
 
 if __name__ == "__main__":
     # Optionally set HTTP proxy from environment variable or config here
-    http_proxy_env = ""
+    http_proxy_env = "http://192.168.21.119:8080"
     if http_proxy_env:
         MegaAccount.set_http_proxy(http_proxy_env)
     # Check if CSV file exists, and if not create it and add header
